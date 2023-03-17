@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @AllArgsConstructor
@@ -17,8 +17,8 @@ public class ContaCorrente {
     private String agencia;
     private String conta;
     private String pix;
-    private Map<LocalDate, String> extrato;
-    private BigDecimal saldo = BigDecimal.ZERO;
+    private Map<LocalDateTime, String> extrato;
+    private BigDecimal saldo;
 
     // Diretamente no caixa eletrônico:
     public void sacar(BigDecimal saque) {
@@ -28,13 +28,14 @@ public class ContaCorrente {
         }
 
         setSaldo(getSaldo().subtract(saque));
+        getExtrato().put(LocalDateTime.now(), "SAQUE: -" + saque.toString() + ";");
     }
 
     // Diretamente no caixa eletrônico:
     public void depositar(BigDecimal deposito) {
         setSaldo(getSaldo().add(deposito));
         String descricao = "DEPÓSITO: +" + deposito.toString();
-        getExtrato().put(LocalDate.now(), descricao);
+        getExtrato().put(LocalDateTime.now(), descricao);
     }
 
     // Via pix
@@ -42,7 +43,7 @@ public class ContaCorrente {
         if (getPix().equals(pix)) {
             setSaldo(getSaldo().add(deposito));
             String descricao = "DEPÓSITO: +" + deposito.toString();
-            getExtrato().put(LocalDate.now(), descricao);
+            getExtrato().put(LocalDateTime.now(), descricao);
             return;
         }
         System.out.println("Pix incorreto para efetuar o depósito! Por favor, insira seu pix corretamente.");
@@ -53,7 +54,7 @@ public class ContaCorrente {
         if (getAgencia().equals(agencia) && getConta().equals(conta)) {
             setSaldo(getSaldo().add(deposito));
             String descricao = "DEPÓSITO: +" + deposito.toString();
-            getExtrato().put(LocalDate.now(), descricao);
+            getExtrato().put(LocalDateTime.now(), descricao);
             return;
         }
         System.out.println("Dados inválidos para efetuar o depósito! Por favor, insira sua agência e conta bancária corretamente.");
@@ -63,19 +64,21 @@ public class ContaCorrente {
     public void verExtrato() {
         System.out.println("--- Extrato: ---");
         System.out.println("- DATA: - DESCRIÇÃO:");
-        getExtrato().forEach((k, v) -> System.out.println(k + ": " + v));
+        getExtrato().forEach((k, v) -> {
+            if (!k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
+        });
     }
 
-    public void verExtrato(LocalDate dataInicialDeVarredura) {
-        if (LocalDate.now().isBefore(dataInicialDeVarredura)) {
-            System.out.println("Data inválida! Por favor, insira uma data anterior ou igual a data de hoje (" + LocalDate.now() + ").");
+    public void verExtrato(LocalDateTime dataInicialDeVarredura) {
+        if (LocalDateTime.now().isBefore(dataInicialDeVarredura)) {
+            System.out.println("Data inválida! Por favor, insira uma data anterior ou igual a data de hoje (" + LocalDateTime.now() + ").");
             return;
         }
 
         System.out.println("--- Extrato: ---");
         System.out.println("- DATA: - DESCRIÇÃO:");
         getExtrato().forEach((k, v) -> {
-            if (!k.isBefore(dataInicialDeVarredura)) System.out.println(k + ": " + v);
+            if (!k.isBefore(dataInicialDeVarredura) && !k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
         });
     }
 
@@ -93,10 +96,10 @@ public class ContaCorrente {
         String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
 
         corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(LocalDate.now(), "Pix recebido +" + valorTransferido + descricao);
+        corrente.getExtrato().put(LocalDateTime.now(), "Pix recebido +" + valorTransferido + descricao);
 
         setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(LocalDate.now(), "Pix feito -" + valorTransferido + descricao);
+        getExtrato().put(LocalDateTime.now(), "Pix feito -" + valorTransferido + descricao);
     }
 
     // Transferência entre contas correntes
@@ -113,20 +116,24 @@ public class ContaCorrente {
         String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
 
         corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(LocalDate.now(), "Transferência recebida: +" + valorTransferido + descricao);
+        corrente.getExtrato().put(LocalDateTime.now(), "Transferência recebida: +" + valorTransferido + descricao);
 
         setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(LocalDate.now(), "Transferência feita: -" + valorTransferido + descricao);
+        getExtrato().put(LocalDateTime.now(), "Transferência feita: -" + valorTransferido + descricao);
     }
 
     // Pix programado entre contas correntes
-    public void transferir(LocalDate dataAgendada, ContaCorrente corrente, String pix, BigDecimal valorTransferido) {
+    public void transferir(LocalDateTime dataAgendada, ContaCorrente corrente, String pix, BigDecimal valorTransferido) {
         if (valorTransferido.compareTo(getSaldo()) > 0) {
             System.out.println("Saldo insuficiente! Pix não autorizado.");
             return;
         }
         if (!corrente.getPix().equals(pix)) {
             System.out.println("Pix incorreto! Por favor, insira um pix válido.");
+            return;
+        }
+        if (dataAgendada.isBefore(LocalDateTime.now())) {
+            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
             return;
         }
 
@@ -140,13 +147,17 @@ public class ContaCorrente {
     }
 
     // Transferência programada entre contas correntes
-    public void transferir(LocalDate dataAgendada, ContaCorrente corrente, String agencia, String conta, BigDecimal valorTransferido) {
+    public void transferir(LocalDateTime dataAgendada, ContaCorrente corrente, String agencia, String conta, BigDecimal valorTransferido) {
         if (valorTransferido.compareTo(getSaldo()) > 0) {
             System.out.println("Saldo insuficiente! Transferência não autorizada.");
             return;
         }
         if (!(corrente.getAgencia().equals(agencia) && corrente.getConta().equals(conta))) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
+            return;
+        }
+        if (dataAgendada.isBefore(LocalDateTime.now())) {
+            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
             return;
         }
 

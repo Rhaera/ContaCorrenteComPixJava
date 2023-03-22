@@ -62,7 +62,7 @@ public class ContaCorrenteTeste {
     }
 
     @Test
-    void realizarPixETransferenciaEntreContas() {
+    void realizarPixETransferenciaEntreContas() throws CloneNotSupportedException {
         realizarDepositoESaqueNasContas();
 
         contaPaulo.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20)); // Errado
@@ -75,12 +75,12 @@ public class ContaCorrenteTeste {
         contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPaulo.getPix(), BigDecimal.valueOf(10f)); // Errado
         contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),"0001", "00000-1", BigDecimal.valueOf(6.00)); // Certo
 
-        assertEquals(18.80, contaPaulo.getSaldo().doubleValue());
-        assertEquals(22.2f, contaPedro.getSaldo().floatValue());
+        assertEquals(22.80, contaPaulo.getSaldo().doubleValue());
+        assertEquals(18.2f, contaPedro.getSaldo().floatValue());
     }
 
     @Test
-    void exibirExtratoDasContas() {
+    void exibirExtratoDasContas() throws CloneNotSupportedException {
         realizarPixETransferenciaEntreContas();
 
         System.out.println("--------------------------------------------------------");

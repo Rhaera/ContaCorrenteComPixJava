@@ -18,6 +18,7 @@ public class ContaCorrente {
     @Getter
     private String pix;
     private Map<LocalDateTime, String> extrato;
+    private List<Transacao> extrato2;
     @Getter
     private BigDecimal saldo;
 
@@ -33,6 +34,7 @@ public class ContaCorrente {
         private String pix = "";
         private final BigDecimal saldo = BigDecimal.ZERO;
         private final Map<LocalDateTime, String> extrato = new HashMap<>();
+        private final List<Transacao> extrato2 = new ArrayList<>();
 
         public AccountBuilder(String agencia, String conta) {
             this.agencia = agencia;
@@ -63,6 +65,7 @@ public class ContaCorrente {
         this.pix         = aBuilder.pix;
         this.saldo       = aBuilder.saldo;
         this.extrato     = aBuilder.extrato;
+        this.extrato2    = aBuilder.extrato2;
 
         // listaClientes.add(new ContaCorrente(aBuilder)); -> Errado!
     }
@@ -74,8 +77,13 @@ public class ContaCorrente {
             return;
         }
 
+        String descricao = "SAQUE: -" + saque.toString() + ";";
+
+        Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.SAQUE, descricao);
+
         saldo = this.saldo.subtract(saque);
-        extrato.put(LocalDateTime.now(), "SAQUE: -" + saque.toString() + ";");
+        extrato.put(LocalDateTime.now(), descricao);
+        extrato2.add(transacao);
         listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
@@ -84,6 +92,8 @@ public class ContaCorrente {
         saldo = this.saldo.add(deposito);
         String descricao = "DEPÓSITO: +" + deposito.toString();
         extrato.put(LocalDateTime.now(), descricao);
+        Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
+        extrato2.add(transacao);
         listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
@@ -93,6 +103,8 @@ public class ContaCorrente {
             saldo = this.saldo.add(deposito);
             String descricao = "DEPÓSITO: +" + deposito.toString();
             extrato.put(LocalDateTime.now(), descricao);
+            Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
+            extrato2.add(transacao);
             listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
@@ -105,6 +117,8 @@ public class ContaCorrente {
             saldo = this.saldo.add(deposito);
             String descricao = "DEPÓSITO: +" + deposito.toString();
             extrato.put(LocalDateTime.now(), descricao);
+            Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
+            extrato2.add(transacao);
             listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
@@ -134,7 +148,7 @@ public class ContaCorrente {
     }
 
     // Pix entre contas correntes
-    public void transferir(String pixDestinatario, BigDecimal valorTransferido) {
+    public void transferir(String pixDestinatario, BigDecimal valorTransferido) throws CloneNotSupportedException {
         if (!verificarPix(pixDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
@@ -150,15 +164,19 @@ public class ContaCorrente {
 
         corrente.saldo = corrente.saldo.add(valorTransferido);
         corrente.extrato.put(LocalDateTime.now(), "Pix recebido +" + valorTransferido + descricao);
+        Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.PIX, "Pix recebido +" + valorTransferido + descricao);
+        corrente.extrato2.add(transacao.clone());
         listaClientes.set(listaClientes.indexOf(localizarConta(pixDestinatario)), corrente);
 
         saldo = this.saldo.subtract(valorTransferido);
         extrato.put(LocalDateTime.now(), "Pix feito -" + valorTransferido + descricao);
+        transacao.setDescricao("Pix feito -" + valorTransferido + descricao);
+        extrato2.add(transacao.clone());
         listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Transferência entre contas correntes
-    public void transferir(String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) {
+    public void transferir(String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) throws CloneNotSupportedException {
         if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
@@ -174,15 +192,20 @@ public class ContaCorrente {
 
         corrente.saldo = corrente.saldo.add(valorTransferido);
         corrente.extrato.put(LocalDateTime.now(), "Transferência recebida: +" + valorTransferido + descricao);
+        Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.TRANSFERENCIA, "Transferência recebida: +" + valorTransferido + descricao);
+        corrente.extrato2.add(transacao.clone());
         listaClientes.set(listaClientes.indexOf(localizarConta(agenciaDestinatario, contaDestinatario)), corrente);
 
         saldo = this.saldo.subtract(valorTransferido);
         extrato.put(LocalDateTime.now(), "Transferência feita: -" + valorTransferido + descricao);
+        transacao.setDescricao("Transferência feita: -" + valorTransferido + descricao);
+        extrato2.add(transacao.clone());
         listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Pix programado entre contas correntes
-    public void transferir(LocalDateTime dataAgendada, String pixDestinatario, BigDecimal valorTransferido) {
+    public void transferir(LocalDateTime dataAgendada, String pixDestinatario, BigDecimal valorTransferido)
+            throws CloneNotSupportedException {
         if (!verificarPix(pixDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
@@ -195,22 +218,30 @@ public class ContaCorrente {
             System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
             return;
         }
+        if (!dataAgendada.isAfter(LocalDateTime.now())) { // Apenas para validar o agendamento
 
-        ContaCorrente corrente = localizarConta(pixDestinatario);
+            ContaCorrente corrente = localizarConta(pixDestinatario);
 
-        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
+            String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
 
-        corrente.saldo = corrente.saldo.add(valorTransferido);
-        corrente.extrato.put(dataAgendada, "Pix recebido +" + valorTransferido + descricao);
-        listaClientes.set(listaClientes.indexOf(localizarConta(pixDestinatario)), corrente);
+            corrente.saldo = corrente.saldo.add(valorTransferido);
+            corrente.extrato.put(dataAgendada, "Pix agendado +" + valorTransferido + descricao);
+            Transacao transacao = new Transacao(dataAgendada, TipoTransacao.PIX, "Pix agendado +" + valorTransferido + descricao);
+            corrente.extrato2.add(transacao.clone());
+            listaClientes.set(listaClientes.indexOf(localizarConta(pixDestinatario)), corrente);
 
-        saldo = this.saldo.subtract(valorTransferido);
-        extrato.put(dataAgendada, "Pix feito -" + valorTransferido + descricao);
-        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+            saldo = this.saldo.subtract(valorTransferido);
+            extrato.put(dataAgendada, "Pix agendado -" + valorTransferido + descricao);
+            transacao.setDescricao("Pix agendado -" + valorTransferido + descricao);
+            extrato2.add(transacao.clone());
+            listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+
+        }
     }
 
     // Transferência programada entre contas correntes
-    public void transferir(LocalDateTime dataAgendada, String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) {
+    public void transferir(LocalDateTime dataAgendada, String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido)
+            throws CloneNotSupportedException {
         if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
@@ -223,18 +254,25 @@ public class ContaCorrente {
             System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
             return;
         }
+        if (!dataAgendada.isAfter(LocalDateTime.now())) { // Apenas para validar o agendamento
 
-        ContaCorrente corrente = localizarConta(agenciaDestinatario, contaDestinatario);
+            ContaCorrente corrente = localizarConta(agenciaDestinatario, contaDestinatario);
 
-        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
+            String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
 
-        corrente.saldo = corrente.saldo.add(valorTransferido);
-        corrente.extrato.put(dataAgendada, "Transferência recebida: +" + valorTransferido + descricao);
-        listaClientes.set(listaClientes.indexOf(localizarConta(agenciaDestinatario, contaDestinatario)), corrente);
+            corrente.saldo = corrente.saldo.add(valorTransferido);
+            corrente.extrato.put(dataAgendada, "Transferência agendada: +" + valorTransferido + descricao);
+            Transacao transacao = new Transacao(dataAgendada, TipoTransacao.TRANSFERENCIA, "Transferência agendada: +" + valorTransferido + descricao);
+            corrente.extrato2.add(transacao.clone());
+            listaClientes.set(listaClientes.indexOf(localizarConta(agenciaDestinatario, contaDestinatario)), corrente);
 
-        saldo = this.saldo.subtract(valorTransferido);
-        extrato.put(dataAgendada, "Transferência feita: -" + valorTransferido + descricao);
-        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+            saldo = this.saldo.subtract(valorTransferido);
+            extrato.put(dataAgendada, "Transferência agendada: -" + valorTransferido + descricao);
+            transacao.setDescricao("Transferência agendada: -" + valorTransferido + descricao);
+            extrato2.add(transacao.clone());
+            listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+
+        }
     }
 
     public static boolean verificarPix(String pix) {

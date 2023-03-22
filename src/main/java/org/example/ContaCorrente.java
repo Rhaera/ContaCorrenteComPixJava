@@ -1,60 +1,111 @@
 package org.example;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
-@AllArgsConstructor
-@Getter
-@Setter
+@RequiredArgsConstructor
 public class ContaCorrente {
 
+    @NonNull
+    private final String agencia;
+    @NonNull
+    private final String conta;
     private String nomeTitular;
-    private String agencia;
-    private String conta;
+    @Getter
     private String pix;
     private Map<LocalDateTime, String> extrato;
+    @Getter
     private BigDecimal saldo;
+
+    // Estrutura de dados estática para armazenar os clientes
+    private static final List<ContaCorrente> listaClientes = new ArrayList<>();
+
+    // Builder implementation
+    public static class AccountBuilder {
+
+        private final String agencia;
+        private final String conta;
+        private String nomeTitular = "";
+        private String pix = "";
+        private final BigDecimal saldo = BigDecimal.ZERO;
+        private final Map<LocalDateTime, String> extrato = new HashMap<>();
+
+        public AccountBuilder(String agencia, String conta) {
+            this.agencia = agencia;
+            this.conta   = conta;
+        }
+
+        public AccountBuilder nomeTitular(String nome) {
+            this.nomeTitular = nome;
+            return this;
+        }
+
+        public AccountBuilder pix(String pix) {
+            this.pix = pix;
+            return this;
+        }
+
+        public ContaCorrente build() {
+            listaClientes.add(new ContaCorrente(this)); // Certo!
+            return new ContaCorrente(this);
+        }
+    }
+
+    private ContaCorrente(AccountBuilder aBuilder) {
+
+        this.agencia     = aBuilder.agencia;
+        this.conta       = aBuilder.conta;
+        this.nomeTitular = aBuilder.nomeTitular;
+        this.pix         = aBuilder.pix;
+        this.saldo       = aBuilder.saldo;
+        this.extrato     = aBuilder.extrato;
+
+        // listaClientes.add(new ContaCorrente(aBuilder)); -> Errado!
+    }
 
     // Diretamente no caixa eletrônico:
     public void sacar(BigDecimal saque) {
-        if (getSaldo().compareTo(saque) < 0) {
+        if (this.saldo.compareTo(saque) < 0) {
             System.out.println("Saldo insuficiente para saque! Por favor, digite uma quantia válida para saque.");
             return;
         }
 
-        setSaldo(getSaldo().subtract(saque));
-        getExtrato().put(LocalDateTime.now(), "SAQUE: -" + saque.toString() + ";");
+        saldo = this.saldo.subtract(saque);
+        extrato.put(LocalDateTime.now(), "SAQUE: -" + saque.toString() + ";");
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Diretamente no caixa eletrônico:
     public void depositar(BigDecimal deposito) {
-        setSaldo(getSaldo().add(deposito));
+        saldo = this.saldo.add(deposito);
         String descricao = "DEPÓSITO: +" + deposito.toString();
-        getExtrato().put(LocalDateTime.now(), descricao);
+        extrato.put(LocalDateTime.now(), descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Via pix
-    public void depositar(String pix, BigDecimal deposito) {
-        if (getPix().equals(pix)) {
-            setSaldo(getSaldo().add(deposito));
+    public void depositar(String pixPessoal, BigDecimal deposito) {
+        if (this.pix.equals(pixPessoal)) {
+            saldo = this.saldo.add(deposito);
             String descricao = "DEPÓSITO: +" + deposito.toString();
-            getExtrato().put(LocalDateTime.now(), descricao);
+            extrato.put(LocalDateTime.now(), descricao);
+            listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
         System.out.println("Pix incorreto para efetuar o depósito! Por favor, insira seu pix corretamente.");
     }
 
     // Via depósito bancário usual
-    public void depositar(String agencia, String conta, BigDecimal deposito) {
-        if (getAgencia().equals(agencia) && getConta().equals(conta)) {
-            setSaldo(getSaldo().add(deposito));
+    public void depositar(String agenciaPessoal, String contaPessoal, BigDecimal deposito) {
+        if (this.agencia.equals(agenciaPessoal) && this.conta.equals(contaPessoal)) {
+            saldo = this.saldo.add(deposito);
             String descricao = "DEPÓSITO: +" + deposito.toString();
-            getExtrato().put(LocalDateTime.now(), descricao);
+            extrato.put(LocalDateTime.now(), descricao);
+            listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
         System.out.println("Dados inválidos para efetuar o depósito! Por favor, insira sua agência e conta bancária corretamente.");
@@ -64,7 +115,7 @@ public class ContaCorrente {
     public void verExtrato() {
         System.out.println("--- Extrato: ---");
         System.out.println("- DATA: - DESCRIÇÃO:");
-        getExtrato().forEach((k, v) -> {
+        this.extrato.forEach((k, v) -> {
             if (!k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
         });
     }
@@ -77,96 +128,140 @@ public class ContaCorrente {
 
         System.out.println("--- Extrato: ---");
         System.out.println("- DATA: - DESCRIÇÃO:");
-        getExtrato().forEach((k, v) -> {
+        this.extrato.forEach((k, v) -> {
             if (!k.isBefore(dataInicialDeVarredura) && !k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
         });
     }
 
     // Pix entre contas correntes
-    public void transferir(ContaCorrente corrente, String pix, BigDecimal valorTransferido) {
-        if (valorTransferido.compareTo(getSaldo()) > 0) {
+    public void transferir(String pixDestinatario, BigDecimal valorTransferido) {
+        if (!verificarPix(pixDestinatario)) {
+            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
+            return;
+        }
+        if (valorTransferido.compareTo(this.saldo) > 0) {
             System.out.println("Saldo insuficiente! Pix não autorizado.");
             return;
         }
-        if (!corrente.getPix().equals(pix)) {
-            System.out.println("Pix incorreto! Por favor, insira um pix válido.");
-            return;
-        }
 
-        String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
+        ContaCorrente corrente = localizarConta(pixDestinatario);
 
-        corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(LocalDateTime.now(), "Pix recebido +" + valorTransferido + descricao);
+        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
 
-        setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(LocalDateTime.now(), "Pix feito -" + valorTransferido + descricao);
+        corrente.saldo = corrente.saldo.add(valorTransferido);
+        corrente.extrato.put(LocalDateTime.now(), "Pix recebido +" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(pixDestinatario)), corrente);
+
+        saldo = this.saldo.subtract(valorTransferido);
+        extrato.put(LocalDateTime.now(), "Pix feito -" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Transferência entre contas correntes
-    public void transferir(ContaCorrente corrente, String agencia, String conta, BigDecimal valorTransferido) {
-        if (valorTransferido.compareTo(getSaldo()) > 0) {
-            System.out.println("Saldo insuficiente! Transferência não autorizada.");
-            return;
-        }
-        if (!(corrente.getAgencia().equals(agencia) && corrente.getConta().equals(conta))) {
+    public void transferir(String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) {
+        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
         }
+        if (valorTransferido.compareTo(this.saldo) > 0) {
+            System.out.println("Saldo insuficiente! Transferência não autorizada.");
+            return;
+        }
 
-        String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
+        ContaCorrente corrente = localizarConta(agenciaDestinatario, contaDestinatario);
 
-        corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(LocalDateTime.now(), "Transferência recebida: +" + valorTransferido + descricao);
+        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
 
-        setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(LocalDateTime.now(), "Transferência feita: -" + valorTransferido + descricao);
+        corrente.saldo = corrente.saldo.add(valorTransferido);
+        corrente.extrato.put(LocalDateTime.now(), "Transferência recebida: +" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(agenciaDestinatario, contaDestinatario)), corrente);
+
+        saldo = this.saldo.subtract(valorTransferido);
+        extrato.put(LocalDateTime.now(), "Transferência feita: -" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
     }
 
     // Pix programado entre contas correntes
-    public void transferir(LocalDateTime dataAgendada, ContaCorrente corrente, String pix, BigDecimal valorTransferido) {
-        if (valorTransferido.compareTo(getSaldo()) > 0) {
-            System.out.println("Saldo insuficiente! Pix não autorizado.");
-            return;
-        }
-        if (!corrente.getPix().equals(pix)) {
-            System.out.println("Pix incorreto! Por favor, insira um pix válido.");
-            return;
-        }
-        if (dataAgendada.isBefore(LocalDateTime.now())) {
-            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
-            return;
-        }
-
-        String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
-
-        corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(dataAgendada, "Pix recebido +" + valorTransferido + descricao);
-
-        setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(dataAgendada, "Pix feito -" + valorTransferido + descricao);
-    }
-
-    // Transferência programada entre contas correntes
-    public void transferir(LocalDateTime dataAgendada, ContaCorrente corrente, String agencia, String conta, BigDecimal valorTransferido) {
-        if (valorTransferido.compareTo(getSaldo()) > 0) {
-            System.out.println("Saldo insuficiente! Transferência não autorizada.");
-            return;
-        }
-        if (!(corrente.getAgencia().equals(agencia) && corrente.getConta().equals(conta))) {
+    public void transferir(LocalDateTime dataAgendada, String pixDestinatario, BigDecimal valorTransferido) {
+        if (!verificarPix(pixDestinatario)) {
             System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
             return;
         }
+        if (valorTransferido.compareTo(this.saldo) > 0) {
+            System.out.println("Saldo insuficiente! Pix não autorizado.");
+            return;
+        }
         if (dataAgendada.isBefore(LocalDateTime.now())) {
             System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
             return;
         }
 
-        String descricao = " => DE " + getNomeTitular() + "; PARA " + corrente.getNomeTitular() + ";";
+        ContaCorrente corrente = localizarConta(pixDestinatario);
 
-        corrente.setSaldo(corrente.getSaldo().add(valorTransferido));
-        corrente.getExtrato().put(dataAgendada, "Transferência recebida: +" + valorTransferido + descricao);
+        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
 
-        setSaldo(getSaldo().subtract(valorTransferido));
-        getExtrato().put(dataAgendada, "Transferência feita: -" + valorTransferido + descricao);
+        corrente.saldo = corrente.saldo.add(valorTransferido);
+        corrente.extrato.put(dataAgendada, "Pix recebido +" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(pixDestinatario)), corrente);
+
+        saldo = this.saldo.subtract(valorTransferido);
+        extrato.put(dataAgendada, "Pix feito -" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+    }
+
+    // Transferência programada entre contas correntes
+    public void transferir(LocalDateTime dataAgendada, String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) {
+        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
+            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
+            return;
+        }
+        if (valorTransferido.compareTo(this.saldo) > 0) {
+            System.out.println("Saldo insuficiente! Transferência não autorizada.");
+            return;
+        }
+        if (dataAgendada.isBefore(LocalDateTime.now())) {
+            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
+            return;
+        }
+
+        ContaCorrente corrente = localizarConta(agenciaDestinatario, contaDestinatario);
+
+        String descricao = " => DE " + this.nomeTitular + "; PARA " + corrente.nomeTitular + ";";
+
+        corrente.saldo = corrente.saldo.add(valorTransferido);
+        corrente.extrato.put(dataAgendada, "Transferência recebida: +" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(agenciaDestinatario, contaDestinatario)), corrente);
+
+        saldo = this.saldo.subtract(valorTransferido);
+        extrato.put(dataAgendada, "Transferência feita: -" + valorTransferido + descricao);
+        listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
+    }
+
+    public static boolean verificarPix(String pix) {
+        return listaClientes.stream()
+                        .map(ContaCorrente::getPix)
+                        .collect(Collectors.toList())
+                        .contains(pix);
+    }
+
+    public static boolean verificarAgenciaEConta(String agencia, String conta) {
+        return listaClientes.stream()
+                        .map(contaCorrente -> contaCorrente.agencia + " " + contaCorrente.conta)
+                        .collect(Collectors.toList())
+                        .contains(agencia + " " + conta);
+    }
+
+    public static ContaCorrente localizarConta(String pix) {
+        return listaClientes.stream()
+                            .filter(contaCorrente -> contaCorrente.pix.equals(pix))
+                            .collect(Collectors.toList())
+                            .get(0);
+    }
+
+    public static ContaCorrente localizarConta(String agencia, String conta) {
+        return listaClientes.stream()
+                            .filter(contaCorrente -> contaCorrente.agencia.equals(agencia) && contaCorrente.conta.equals(conta))
+                            .collect(Collectors.toList())
+                            .get(0);
     }
 }

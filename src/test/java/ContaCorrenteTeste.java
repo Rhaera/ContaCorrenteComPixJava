@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,7 +11,13 @@ public class ContaCorrenteTeste {
 
     // Testes com JUnit
 
-    public ContaCorrente contaPaulo = new ContaCorrente(
+    // Builder Refactoring
+    public ContaCorrente contaPaulo = new ContaCorrente.AccountBuilder("0001", "00000-1")
+                                                        .nomeTitular("Paulo")
+                                                        .pix("paulo@email.com")
+                                                        .build();
+/*
+            new ContaCorrente(
         "Paulo",
             "0001",
             "00000-1",
@@ -20,8 +25,13 @@ public class ContaCorrenteTeste {
             new HashMap<>(),
             BigDecimal.ZERO
     );
-
-    public ContaCorrente contaPedro = new ContaCorrente(
+*/
+    public ContaCorrente contaPedro = new ContaCorrente.AccountBuilder("0002", "00000-2")
+                                                        .nomeTitular("Pedro")
+                                                        .pix("pedro@email.com")
+                                                        .build();
+/*
+            new ContaCorrente(
             "Pedro",
             "0002",
             "00000-2",
@@ -29,6 +39,14 @@ public class ContaCorrenteTeste {
             new HashMap<>(),
             BigDecimal.ZERO
     );
+*/
+    @Test
+    void testarInstancias() {
+        System.out.println(contaPaulo);
+        assertInstanceOf(ContaCorrente.class, contaPaulo);
+        System.out.println(contaPedro);
+        assertInstanceOf(ContaCorrente.class, contaPedro);
+    }
 
     @Test
     void realizarDepositoESaqueNasContas() {
@@ -47,15 +65,15 @@ public class ContaCorrenteTeste {
     void realizarPixETransferenciaEntreContas() {
         realizarDepositoESaqueNasContas();
 
-        contaPaulo.transferir(contaPedro, contaPaulo.getPix(), BigDecimal.valueOf(20)); // Errado
-        contaPedro.transferir(contaPaulo, contaPaulo.getPix(), BigDecimal.valueOf(20L)); // Errado
-        contaPedro.transferir(contaPaulo, contaPaulo.getPix(), BigDecimal.valueOf(10d)); // Certo
-        contaPaulo.transferir(contaPedro, contaPaulo.getAgencia(), contaPedro.getConta(), BigDecimal.valueOf(1.05f)); // Errado
-        contaPaulo.transferir(contaPedro, contaPedro.getAgencia(), contaPedro.getConta(), BigDecimal.valueOf(10)); // Certo
-        contaPaulo.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPedro, contaPedro.getPix(), BigDecimal.valueOf(10f)); // Errado
-        contaPaulo.transferir(LocalDateTime.of(2024, 1, 29, 20, 2, 0), contaPedro, contaPedro.getPix(), BigDecimal.valueOf(10L)); // Certo
-        contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPedro, contaPaulo.getPix(), BigDecimal.valueOf(10f)); // Errado
-        contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10), contaPaulo, contaPaulo.getAgencia(), contaPaulo.getConta(), BigDecimal.valueOf(6.00)); // Certo
+        contaPaulo.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20)); // Errado
+        contaPedro.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20L)); // Errado
+        contaPedro.transferir(contaPaulo.getPix(), BigDecimal.valueOf(10d)); // Certo
+        contaPaulo.transferir("0001", "00000-2", BigDecimal.valueOf(1.05f)); // Errado
+        contaPaulo.transferir("0002", "00000-2", BigDecimal.valueOf(10)); // Certo
+        contaPaulo.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPedro.getPix(), BigDecimal.valueOf(10f)); // Errado
+        contaPaulo.transferir(LocalDateTime.of(2024, 1, 29, 20, 2, 0), contaPedro.getPix(), BigDecimal.valueOf(10L)); // Certo
+        contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPaulo.getPix(), BigDecimal.valueOf(10f)); // Errado
+        contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),"0001", "00000-1", BigDecimal.valueOf(6.00)); // Certo
 
         assertEquals(18.80, contaPaulo.getSaldo().doubleValue());
         assertEquals(22.2f, contaPedro.getSaldo().floatValue());

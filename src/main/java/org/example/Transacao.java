@@ -16,6 +16,7 @@ public class Transacao implements Cloneable {
 
     public String formatarDataEHora(String data) {
         if (data.length() < 2) return "0" + data;
+
         return data;
     }
 

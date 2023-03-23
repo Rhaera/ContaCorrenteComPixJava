@@ -13,8 +13,7 @@ public enum TipoTransacao {
         this.tipo = tipoTransacao;
     }
 
-    @Override
-    public String toString() {
+    @Override public String toString() {
         return tipo;
     }
 }

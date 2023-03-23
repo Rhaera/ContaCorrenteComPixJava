@@ -17,7 +17,7 @@ public class ContaCorrente {
     private final String conta;
     private String nomeTitular;
     @Getter
-    private String pix;
+    private List<String> pix;
     private Map<LocalDateTime, String> extrato;
     private List<Transacao> extrato2; // Novo extrato
     @Getter
@@ -32,7 +32,7 @@ public class ContaCorrente {
         private final String agencia;
         private final String conta;
         private String nomeTitular = "";
-        private String pix = "";
+        private List<String> pix = new ArrayList<>();
         private final BigDecimal saldo = BigDecimal.ZERO;
         private final Map<LocalDateTime, String> extrato = new HashMap<>();
         private final List<Transacao> extrato2 = new ArrayList<>();
@@ -47,7 +47,7 @@ public class ContaCorrente {
             return this;
         }
 
-        public AccountBuilder pix(String pix) {
+        public AccountBuilder pix(List<String> pix) {
             this.pix = pix;
             return this;
         }
@@ -69,6 +69,7 @@ public class ContaCorrente {
         this.extrato2    = aBuilder.extrato2;
 
         // listaClientes.add(new ContaCorrente(aBuilder)); -> Errado!
+
     }
 
     // Diretamente no caixa eletrônico:
@@ -108,7 +109,7 @@ public class ContaCorrente {
         if (deposito.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor para depósito inválido! Por favor, digite uma quantia válida para depósito.");
         }
-        if (this.pix.equals(pixPessoal)) {
+        if (this.pix.contains(pixPessoal)) {
             saldo = this.saldo.add(deposito);
             String descricao = "DEPÓSITO: +" + deposito;
             extrato.put(LocalDateTime.now(), descricao);
@@ -159,6 +160,9 @@ public class ContaCorrente {
             throw new IllegalArgumentException("Data inválida! Por favor, insira uma data anterior ou igual a data de hoje (" + LocalDateTime.now() + ").");
         }
 
+        System.out.println("---------- EXTRATO: ----------");
+        System.out.println("- DATA:          - TIPO:         - DESCRIÇÃO:");
+
         this.extrato2
                 .stream()
                 .filter(transacao -> !transacao.getDataTransacao().isBefore(dataInicialDeVarredura) && !transacao.getDataTransacao().isAfter(LocalDateTime.now()))
@@ -177,7 +181,7 @@ public class ContaCorrente {
     // Pix entre contas correntes
     public void transferir(String pixDestinatario, BigDecimal valorTransferido)
             throws CloneNotSupportedException, IllegalArgumentException {
-        if (!verificarPix(pixDestinatario) || this.pix.equals(pixDestinatario)) {
+        if (!verificarPix(pixDestinatario) || this.pix.contains(pixDestinatario)) {
             throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
@@ -231,7 +235,7 @@ public class ContaCorrente {
     // Pix programado entre contas correntes
     public void transferir(LocalDateTime dataAgendada, String pixDestinatario, BigDecimal valorTransferido)
             throws CloneNotSupportedException, IllegalArgumentException {
-        if (!verificarPix(pixDestinatario) || this.pix.equals(pixDestinatario)) {
+        if (!verificarPix(pixDestinatario) || this.pix.contains(pixDestinatario)) {
             throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
@@ -294,31 +298,52 @@ public class ContaCorrente {
         }
     }
 
-    public static boolean verificarPix(String pix) {
+    public static boolean verificarPix(String pixCadastrado) {
+        // Método com stream
         return listaClientes.stream()
-                        .map(ContaCorrente::getPix)
-                        .collect(Collectors.toList())
-                        .contains(pix);
+                .map(ContaCorrente::getPix)
+                .map(chavesPix -> chavesPix.stream()
+                        .reduce("", String::concat))
+                .reduce("", String::concat)
+                .contains(pixCadastrado);
+
+        /* Método sem streams
+        for (ContaCorrente contaCorrente: listaClientes) {
+
+            if (contaCorrente.pix.contains(pixCadastrado)) return true;
+
+        }
+        return false;
+        */
     }
 
-    public static boolean verificarAgenciaEConta(String agencia, String conta) {
+    public static boolean verificarAgenciaEConta(String agenciaCadastrada, String contaCadastrada) {
         return listaClientes.stream()
-                        .map(contaCorrente -> contaCorrente.agencia + " " + contaCorrente.conta)
+                        .map(contaCorrente -> contaCorrente.agencia + contaCorrente.conta)
                         .collect(Collectors.toList())
-                        .contains(agencia + " " + conta);
+                        .contains(agenciaCadastrada + contaCadastrada);
     }
 
-    public static ContaCorrente localizarConta(String pix) {
+    public static ContaCorrente localizarConta(String pixCadastrado) {
         return listaClientes.stream()
-                            .filter(contaCorrente -> contaCorrente.pix.equals(pix))
+                            .filter(contaCorrente -> contaCorrente.pix.contains(pixCadastrado))
                             .collect(Collectors.toList())
                             .get(0);
     }
 
-    public static ContaCorrente localizarConta(String agencia, String conta) {
+    public static ContaCorrente localizarConta(String agenciaCadastrada, String contaCadastrada) {
         return listaClientes.stream()
-                            .filter(contaCorrente -> contaCorrente.agencia.equals(agencia) && contaCorrente.conta.equals(conta))
+                            .filter(contaCorrente -> contaCorrente.agencia.equals(agenciaCadastrada) && contaCorrente.conta.equals(contaCadastrada))
                             .collect(Collectors.toList())
                             .get(0);
+    }
+
+    public void adicionarPix(String novoPix) throws IllegalArgumentException {
+
+        // Garante a unicidade de cada chave pix
+        if (this.pix.contains(novoPix)) throw new IllegalArgumentException("Alerta! Chave pix já cadastrada. Por favor, insira uma nova chave pix.");
+
+        this.pix.add(novoPix);
+
     }
 }

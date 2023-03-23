@@ -1,21 +1,29 @@
 package org.example;
 
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@RequiredArgsConstructor
+@AllArgsConstructor
+@NonNull
+@Getter
+@Setter
 public class Transacao implements Cloneable {
 
-    @NonNull
     private LocalDateTime dataTransacao;
-    @NonNull
     private TipoTransacao tipoTransacao;
-    @NonNull
-    @Setter
     private String descricao;
+
+    public String formatarDataEHora(String data) {
+        if (data.length() < 2) return "0" + data;
+        return data;
+    }
+
+    public String formatarParaExtrato() {
+        return formatarDataEHora(dataTransacao.getDayOfMonth() + "") + "/" + formatarDataEHora(dataTransacao.getMonthValue() + "") + "/"
+                + dataTransacao.getYear() + " " + formatarDataEHora(dataTransacao.getHour() + "") + ":"
+                + formatarDataEHora(dataTransacao.getMinute() + "") + " - " + tipoTransacao + ": " + descricao;
+    }
 
     @Override
     public Transacao clone() throws CloneNotSupportedException {
@@ -24,7 +32,7 @@ public class Transacao implements Cloneable {
             super.clone();
             return new Transacao(this.dataTransacao, this.tipoTransacao, this.descricao);
         } catch (CloneNotSupportedException cloneNotSupportedException) {
-            throw new CloneNotSupportedException("Clonagem inválida!");
+            throw new CloneNotSupportedException("Ops! Não foi possível realizar a transação. Por favor, tente novamente mais tarde.");
         }
     }
 }

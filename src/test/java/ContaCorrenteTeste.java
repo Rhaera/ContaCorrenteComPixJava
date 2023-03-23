@@ -49,9 +49,10 @@ public class ContaCorrenteTeste {
     }
 
     @Test
-    void realizarDepositoESaqueNasContas() {
-        contaPaulo.depositar("pedro@email.com", BigDecimal.valueOf(20.00));
-        contaPaulo.sacar(BigDecimal.valueOf(24.80));
+    void realizarDepositoESaqueNasContas() throws IllegalArgumentException {
+        assertThrows(IllegalArgumentException.class, () -> contaPaulo.depositar("pedro@email.com", BigDecimal.valueOf(20.00)));
+        assertThrows(IllegalArgumentException.class, () -> contaPaulo.sacar(BigDecimal.valueOf(24.80)));
+
         contaPaulo.depositar("0001", "00000-1", BigDecimal.valueOf(22.80));
         contaPedro.depositar("pedro@email.com", BigDecimal.valueOf(10.50));
         contaPedro.depositar(BigDecimal.valueOf(9.20));
@@ -62,25 +63,37 @@ public class ContaCorrenteTeste {
     }
 
     @Test
-    void realizarPixETransferenciaEntreContas() throws CloneNotSupportedException {
+    void realizarPixETransferenciaEntreContas() throws CloneNotSupportedException, IllegalArgumentException {
         realizarDepositoESaqueNasContas();
 
-        contaPaulo.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20)); // Errado
-        contaPedro.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20L)); // Errado
+        assertThrows(IllegalArgumentException.class, () -> contaPaulo.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20))); // Errado
+        assertThrows(IllegalArgumentException.class, () -> contaPedro.transferir(contaPaulo.getPix(), BigDecimal.valueOf(20L))); // Errado
         contaPedro.transferir(contaPaulo.getPix(), BigDecimal.valueOf(10d)); // Certo
-        contaPaulo.transferir("0001", "00000-2", BigDecimal.valueOf(1.05f)); // Errado
+        assertThrows(IllegalArgumentException.class,
+                () -> contaPaulo.transferir("0001", "00000-2", BigDecimal.valueOf(1.05f))); // Errado
         contaPaulo.transferir("0002", "00000-2", BigDecimal.valueOf(10)); // Certo
-        contaPaulo.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPedro.getPix(), BigDecimal.valueOf(10f)); // Errado
-        contaPaulo.transferir(LocalDateTime.of(2024, 1, 29, 20, 2, 0), contaPedro.getPix(), BigDecimal.valueOf(10L)); // Certo
-        contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0), contaPaulo.getPix(), BigDecimal.valueOf(10f)); // Errado
-        contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),"0001", "00000-1", BigDecimal.valueOf(6.00)); // Certo
+        assertThrows(IllegalArgumentException.class,
+                () -> contaPaulo.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0),
+                contaPedro.getPix(),
+                BigDecimal.valueOf(10f))); // Errado
+        contaPaulo.transferir(LocalDateTime.of(2024, 1, 29, 20, 2, 0),
+                contaPedro.getPix(),
+                BigDecimal.valueOf(10L)); // Certo
+        assertThrows(IllegalArgumentException.class,
+                () -> contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0),
+                contaPaulo.getPix(),
+                BigDecimal.valueOf(10f))); // Errado
+        contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),
+                "0001",
+                "00000-1",
+                BigDecimal.valueOf(6.00)); // Certo
 
         assertEquals(22.80, contaPaulo.getSaldo().doubleValue());
         assertEquals(18.2f, contaPedro.getSaldo().floatValue());
     }
 
     @Test
-    void exibirExtratoDasContas() throws CloneNotSupportedException {
+    void exibirExtratoDasContas() throws CloneNotSupportedException, IllegalArgumentException {
         realizarPixETransferenciaEntreContas();
 
         System.out.println("--------------------------------------------------------");
@@ -89,7 +102,7 @@ public class ContaCorrenteTeste {
 
         System.out.println("--------------------------------------------------------");
 
-        assertDoesNotThrow(() -> contaPedro.verExtrato(LocalDateTime.of(2023, 3, 18, 2, 8, 10)));
+        assertThrows(IllegalArgumentException.class, () -> contaPedro.verExtrato(LocalDateTime.of(2023, 3, 26, 2, 8, 10)));
 
         System.out.println("--------------------------------------------------------");
 

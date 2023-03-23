@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -18,7 +19,7 @@ public class ContaCorrente {
     @Getter
     private String pix;
     private Map<LocalDateTime, String> extrato;
-    private List<Transacao> extrato2;
+    private List<Transacao> extrato2; // Novo extrato
     @Getter
     private BigDecimal saldo;
 
@@ -52,7 +53,7 @@ public class ContaCorrente {
         }
 
         public ContaCorrente build() {
-            listaClientes.add(new ContaCorrente(this)); // Certo!
+            listaClientes.add(new ContaCorrente(this)); // -> Certo!
             return new ContaCorrente(this);
         }
     }
@@ -71,13 +72,15 @@ public class ContaCorrente {
     }
 
     // Diretamente no caixa eletrônico:
-    public void sacar(BigDecimal saque) {
+    public void sacar(BigDecimal saque) throws IllegalArgumentException {
         if (this.saldo.compareTo(saque) < 0) {
-            System.out.println("Saldo insuficiente para saque! Por favor, digite uma quantia válida para saque.");
-            return;
+            throw new IllegalArgumentException("Saldo insuficiente para saque! Por favor, digite uma quantia válida para saque.");
+        }
+        if (saque.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor para saque inválido! Por favor, digite uma quantia válida para saque.");
         }
 
-        String descricao = "SAQUE: -" + saque.toString() + ";";
+        String descricao = "SAQUE: -" + saque + ";";
 
         Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.SAQUE, descricao);
 
@@ -88,9 +91,12 @@ public class ContaCorrente {
     }
 
     // Diretamente no caixa eletrônico:
-    public void depositar(BigDecimal deposito) {
+    public void depositar(BigDecimal deposito) throws IllegalArgumentException {
+        if (deposito.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor para depósito inválido! Por favor, digite uma quantia válida para depósito.");
+        }
         saldo = this.saldo.add(deposito);
-        String descricao = "DEPÓSITO: +" + deposito.toString();
+        String descricao = "DEPÓSITO: +" + deposito;
         extrato.put(LocalDateTime.now(), descricao);
         Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
         extrato2.add(transacao);
@@ -98,64 +104,84 @@ public class ContaCorrente {
     }
 
     // Via pix
-    public void depositar(String pixPessoal, BigDecimal deposito) {
+    public void depositar(String pixPessoal, BigDecimal deposito) throws IllegalArgumentException {
+        if (deposito.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor para depósito inválido! Por favor, digite uma quantia válida para depósito.");
+        }
         if (this.pix.equals(pixPessoal)) {
             saldo = this.saldo.add(deposito);
-            String descricao = "DEPÓSITO: +" + deposito.toString();
+            String descricao = "DEPÓSITO: +" + deposito;
             extrato.put(LocalDateTime.now(), descricao);
             Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
             extrato2.add(transacao);
             listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
-        System.out.println("Pix incorreto para efetuar o depósito! Por favor, insira seu pix corretamente.");
+        throw new IllegalArgumentException("Pix incorreto para efetuar o depósito! Por favor, insira seu pix corretamente.");
     }
 
     // Via depósito bancário usual
-    public void depositar(String agenciaPessoal, String contaPessoal, BigDecimal deposito) {
+    public void depositar(String agenciaPessoal, String contaPessoal, BigDecimal deposito) throws IllegalArgumentException {
+        if (deposito.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor para depósito inválido! Por favor, digite uma quantia válida para depósito.");
+        }
         if (this.agencia.equals(agenciaPessoal) && this.conta.equals(contaPessoal)) {
             saldo = this.saldo.add(deposito);
-            String descricao = "DEPÓSITO: +" + deposito.toString();
+            String descricao = "DEPÓSITO: +" + deposito;
             extrato.put(LocalDateTime.now(), descricao);
             Transacao transacao = new Transacao(LocalDateTime.now(), TipoTransacao.DEPOSITO, descricao);
             extrato2.add(transacao);
             listaClientes.set(listaClientes.indexOf(localizarConta(this.agencia, this.conta)), this);
             return;
         }
-        System.out.println("Dados inválidos para efetuar o depósito! Por favor, insira sua agência e conta bancária corretamente.");
+        throw new IllegalArgumentException("Dados inválidos para efetuar o depósito! Por favor, insira sua agência e conta bancária corretamente.");
     }
 
     // Método de visualização do extrato bancário
     public void verExtrato() {
-        System.out.println("--- Extrato: ---");
-        System.out.println("- DATA: - DESCRIÇÃO:");
+        System.out.println("---------- EXTRATO: ----------");
+        System.out.println("- DATA:          - TIPO:         - DESCRIÇÃO:");
+
+        this.extrato2
+                .stream()
+                .map(Transacao::formatarParaExtrato)
+                .forEach(System.out::println);
+
+        /* versão com o extrato anterior (Map)
         this.extrato.forEach((k, v) -> {
             if (!k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
         });
+        */
     }
 
-    public void verExtrato(LocalDateTime dataInicialDeVarredura) {
+    public void verExtrato(LocalDateTime dataInicialDeVarredura) throws IllegalArgumentException {
         if (LocalDateTime.now().isBefore(dataInicialDeVarredura)) {
-            System.out.println("Data inválida! Por favor, insira uma data anterior ou igual a data de hoje (" + LocalDateTime.now() + ").");
-            return;
+            throw new IllegalArgumentException("Data inválida! Por favor, insira uma data anterior ou igual a data de hoje (" + LocalDateTime.now() + ").");
         }
 
+        this.extrato2
+                .stream()
+                .filter(transacao -> !transacao.getDataTransacao().isBefore(dataInicialDeVarredura) && !transacao.getDataTransacao().isAfter(LocalDateTime.now()))
+                .map(Transacao::formatarParaExtrato)
+                .forEach(System.out::println);
+
+        /* versão com o extrato anterior (Map)
         System.out.println("--- Extrato: ---");
         System.out.println("- DATA: - DESCRIÇÃO:");
         this.extrato.forEach((k, v) -> {
             if (!k.isBefore(dataInicialDeVarredura) && !k.isAfter(LocalDateTime.now())) System.out.println(k + ": " + v);
         });
+        */
     }
 
     // Pix entre contas correntes
-    public void transferir(String pixDestinatario, BigDecimal valorTransferido) throws CloneNotSupportedException {
-        if (!verificarPix(pixDestinatario)) {
-            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
-            return;
+    public void transferir(String pixDestinatario, BigDecimal valorTransferido)
+            throws CloneNotSupportedException, IllegalArgumentException {
+        if (!verificarPix(pixDestinatario) || this.pix.equals(pixDestinatario)) {
+            throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
-            System.out.println("Saldo insuficiente! Pix não autorizado.");
-            return;
+            throw new IllegalArgumentException("Saldo insuficiente! Pix não autorizado.");
         }
 
         ContaCorrente corrente = localizarConta(pixDestinatario);
@@ -176,14 +202,13 @@ public class ContaCorrente {
     }
 
     // Transferência entre contas correntes
-    public void transferir(String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido) throws CloneNotSupportedException {
-        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
-            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
-            return;
+    public void transferir(String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido)
+            throws CloneNotSupportedException, IllegalArgumentException {
+        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario) || localizarConta(agenciaDestinatario, contaDestinatario).equals(this)) {
+            throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
-            System.out.println("Saldo insuficiente! Transferência não autorizada.");
-            return;
+            throw new IllegalArgumentException("Saldo insuficiente! Transferência não autorizada.");
         }
 
         ContaCorrente corrente = localizarConta(agenciaDestinatario, contaDestinatario);
@@ -205,18 +230,15 @@ public class ContaCorrente {
 
     // Pix programado entre contas correntes
     public void transferir(LocalDateTime dataAgendada, String pixDestinatario, BigDecimal valorTransferido)
-            throws CloneNotSupportedException {
-        if (!verificarPix(pixDestinatario)) {
-            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
-            return;
+            throws CloneNotSupportedException, IllegalArgumentException {
+        if (!verificarPix(pixDestinatario) || this.pix.equals(pixDestinatario)) {
+            throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
-            System.out.println("Saldo insuficiente! Pix não autorizado.");
-            return;
+            throw new IllegalArgumentException("Saldo insuficiente! Pix não autorizado.");
         }
         if (dataAgendada.isBefore(LocalDateTime.now())) {
-            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
-            return;
+            throw new IllegalArgumentException("Data de agendamento inválida! Por favor, insira um agendamento válido.");
         }
         if (!dataAgendada.isAfter(LocalDateTime.now())) { // Apenas para validar o agendamento
 
@@ -241,18 +263,15 @@ public class ContaCorrente {
 
     // Transferência programada entre contas correntes
     public void transferir(LocalDateTime dataAgendada, String agenciaDestinatario, String contaDestinatario, BigDecimal valorTransferido)
-            throws CloneNotSupportedException {
-        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario)) {
-            System.out.println("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
-            return;
+            throws CloneNotSupportedException, IllegalArgumentException {
+        if (!verificarAgenciaEConta(agenciaDestinatario, contaDestinatario) || localizarConta(agenciaDestinatario, contaDestinatario).equals(this)) {
+            throw new IllegalArgumentException("Dados bancários incorretos! Por favor, insira os dados de uma conta válida.");
         }
         if (valorTransferido.compareTo(this.saldo) > 0) {
-            System.out.println("Saldo insuficiente! Transferência não autorizada.");
-            return;
+            throw new IllegalArgumentException("Saldo insuficiente! Transferência não autorizada.");
         }
         if (dataAgendada.isBefore(LocalDateTime.now())) {
-            System.out.println("Data de agendamento inválida! Por favor, insira um agendamento válido.");
-            return;
+            throw new IllegalArgumentException("Data de agendamento inválida! Por favor, insira um agendamento válido.");
         }
         if (!dataAgendada.isAfter(LocalDateTime.now())) { // Apenas para validar o agendamento
 

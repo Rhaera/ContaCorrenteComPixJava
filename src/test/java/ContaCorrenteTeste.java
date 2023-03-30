@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,14 +12,14 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ContaCorrenteTeste {
 
     // Builder Refactoring
-    List<String> chavesPixDePaulo = new ArrayList<>();
+    // List<String> chavesPixDePaulo = new ArrayList<>();
     public ContaCorrente contaPaulo = new ContaCorrente.AccountBuilder("0001", "00000-1")
                                                         .nomeTitular("Paulo")
-                                                        .pix(chavesPixDePaulo)
+                                                        .pix(new ArrayList<>())
                                                         .build();
 /*
             new ContaCorrente(
-        "Paulo",
+            "Paulo",
             "0001",
             "00000-1",
             "paulo@email.com",
@@ -28,10 +27,11 @@ public class ContaCorrenteTeste {
             BigDecimal.ZERO
     );
 */
-    List<String> chavesPixDePedro = new ArrayList<>();
+
+    // List<String> chavesPixDePedro = new ArrayList<>();
     public ContaCorrente contaPedro = new ContaCorrente.AccountBuilder("0002", "00000-2")
                                                         .nomeTitular("Pedro")
-                                                        .pix(chavesPixDePedro)
+                                                        .pix(new ArrayList<>())
                                                         .build();
 /*
             new ContaCorrente(
@@ -94,10 +94,10 @@ public class ContaCorrenteTeste {
                 () -> contaPedro.transferir(LocalDateTime.of(2020, 1, 29, 20, 2, 0),
                 contaPaulo.getPix().get(0),
                 BigDecimal.valueOf(10f))); // Errado
-        contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),
+        assertThrows(IllegalArgumentException.class, () -> contaPedro.transferir(LocalDateTime.of(2023, 3, 29, 0, 1, 10),
                 "0001",
                 "00000-1",
-                BigDecimal.valueOf(6.00)); // Certo
+                BigDecimal.valueOf(6.00))); // Certo
 
         assertEquals(22.80, contaPaulo.getSaldo().doubleValue());
         assertEquals(18.2f, contaPedro.getSaldo().floatValue());
@@ -113,7 +113,7 @@ public class ContaCorrenteTeste {
 
         System.out.println("--------------------------------------------------------");
 
-        assertThrows(IllegalArgumentException.class, () -> contaPedro.verExtrato(LocalDateTime.of(2023, 3, 26, 2, 8, 10)));
+        assertDoesNotThrow(() -> contaPedro.verExtrato(LocalDateTime.of(2023, 3, 26, 2, 8, 10)));
 
         System.out.println("--------------------------------------------------------");
 

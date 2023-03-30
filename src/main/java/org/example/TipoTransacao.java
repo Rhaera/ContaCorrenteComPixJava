@@ -3,9 +3,9 @@ package org.example;
 public enum TipoTransacao {
 
     SAQUE("Saque"),
-    DEPOSITO("Deposito"),
+    DEPOSITO("Depósito"),
     PIX("Pix"),
-    TRANSFERENCIA("Transferencia");
+    TRANSFERENCIA("Transferência");
 
     private final String tipo;
 
